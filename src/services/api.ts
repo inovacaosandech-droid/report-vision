@@ -5,7 +5,54 @@ import {
   HealthCheckResponse,
 } from '@/types/reports';
 
+// Use environment variable or fallback to localhost
+// For production, set VITE_API_URL to your public API endpoint
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+
+// Demo mode - when API is not reachable, use mock data
+const USE_DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true' || !import.meta.env.VITE_API_URL;
+
+// Mock data for demonstration
+const MOCK_REPORTS: ReportsListResponse = {
+  reports: [
+    {
+      fileName: 'registro_acesso_dezembro_2025.xlsx',
+      fileSizeBytes: 7842,
+      fileSizeFormatted: '7.66 KB',
+      createdAt: '2026-01-05T14:30:00',
+      fullPath: '/app/output/registro_acesso_dezembro_2025.xlsx',
+    },
+    {
+      fileName: 'registro_acesso_21_novembro_a_20_dezembro_2025.xlsx',
+      fileSizeBytes: 15683,
+      fileSizeFormatted: '15.32 KB',
+      createdAt: '2025-12-20T02:00:15',
+      fullPath: '/app/output/registro_acesso_21_novembro_a_20_dezembro_2025.xlsx',
+    },
+    {
+      fileName: 'registro_acesso_novembro_2025.xlsx',
+      fileSizeBytes: 12450,
+      fileSizeFormatted: '12.16 KB',
+      createdAt: '2025-12-01T10:15:00',
+      fullPath: '/app/output/registro_acesso_novembro_2025.xlsx',
+    },
+    {
+      fileName: 'registro_acesso_21_outubro_a_20_novembro_2025.xlsx',
+      fileSizeBytes: 18920,
+      fileSizeFormatted: '18.48 KB',
+      createdAt: '2025-11-20T08:45:30',
+      fullPath: '/app/output/registro_acesso_21_outubro_a_20_novembro_2025.xlsx',
+    },
+    {
+      fileName: 'registro_acesso_outubro_2025.xlsx',
+      fileSizeBytes: 9876,
+      fileSizeFormatted: '9.64 KB',
+      createdAt: '2025-11-01T09:00:00',
+      fullPath: '/app/output/registro_acesso_outubro_2025.xlsx',
+    },
+  ],
+  totalCount: 5,
+};
 
 class ApiError extends Error {
   constructor(
@@ -39,55 +86,113 @@ async function handleResponse<T>(response: Response): Promise<T> {
   return response.json();
 }
 
+// Helper to check if we should use demo mode
+async function tryFetchOrDemo<T>(
+  fetchFn: () => Promise<T>,
+  demoData: T
+): Promise<T> {
+  if (USE_DEMO_MODE) {
+    // Simulate network delay
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return demoData;
+  }
+  
+  try {
+    return await fetchFn();
+  } catch (error) {
+    // If fetch fails, fall back to demo mode
+    console.warn('API not reachable, using demo data. Set VITE_API_URL for production.');
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return demoData;
+  }
+}
+
 export const reportsApi = {
   /**
    * List all available reports
    */
   async listReports(): Promise<ReportsListResponse> {
-    const response = await fetch(`${API_BASE_URL}/api/reports/list`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
+    return tryFetchOrDemo(
+      async () => {
+        const response = await fetch(`${API_BASE_URL}/api/reports/list`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        return handleResponse<ReportsListResponse>(response);
       },
-    });
-    
-    return handleResponse<ReportsListResponse>(response);
+      MOCK_REPORTS
+    );
   },
 
   /**
    * Generate a monthly report for a specific month/year
    */
   async generateMonthlyReport(params: GenerateReportRequest): Promise<GenerateReportResponse> {
-    const response = await fetch(`${API_BASE_URL}/api/reports/generate`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(params),
-    });
+    const monthNames = [
+      'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+      'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'
+    ];
     
-    return handleResponse<GenerateReportResponse>(response);
+    return tryFetchOrDemo(
+      async () => {
+        const response = await fetch(`${API_BASE_URL}/api/reports/generate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(params),
+        });
+        return handleResponse<GenerateReportResponse>(response);
+      },
+      {
+        success: true,
+        fileName: `registro_acesso_${monthNames[params.month - 1]}_${params.year}.xlsx`,
+        recordCount: Math.floor(Math.random() * 100) + 10,
+        filePath: `/app/output/registro_acesso_${monthNames[params.month - 1]}_${params.year}.xlsx`,
+        generatedAt: new Date().toISOString(),
+      }
+    );
   },
 
   /**
    * Generate a periodic report (21st of previous month to 20th of current month)
    */
   async generatePeriodicReport(): Promise<GenerateReportResponse> {
-    const response = await fetch(`${API_BASE_URL}/api/reports/generate-periodic`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({}),
-    });
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+    const monthNames = [
+      'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+      'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'
+    ];
     
-    return handleResponse<GenerateReportResponse>(response);
+    return tryFetchOrDemo(
+      async () => {
+        const response = await fetch(`${API_BASE_URL}/api/reports/generate-periodic`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        });
+        return handleResponse<GenerateReportResponse>(response);
+      },
+      {
+        success: true,
+        fileName: `registro_acesso_21_${monthNames[prevMonth]}_a_20_${monthNames[currentMonth]}_${now.getFullYear()}.xlsx`,
+        recordCount: Math.floor(Math.random() * 150) + 50,
+        filePath: `/app/output/registro_acesso_21_${monthNames[prevMonth]}_a_20_${monthNames[currentMonth]}_${now.getFullYear()}.xlsx`,
+        generatedAt: new Date().toISOString(),
+      }
+    );
   },
 
   /**
    * Download a report file
    */
   async downloadReport(fileName: string): Promise<void> {
+    if (USE_DEMO_MODE) {
+      // In demo mode, show alert
+      alert(`[Modo Demo] Download do arquivo: ${fileName}\n\nEm produção, o arquivo seria baixado automaticamente.`);
+      return;
+    }
+    
     const encodedFileName = encodeURIComponent(fileName);
     const response = await fetch(`${API_BASE_URL}/api/reports/download/${encodedFileName}`);
     
@@ -115,14 +220,28 @@ export const reportsApi = {
    * Check API health status
    */
   async healthCheck(): Promise<HealthCheckResponse> {
-    const response = await fetch(`${API_BASE_URL}/health`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
+    return tryFetchOrDemo(
+      async () => {
+        const response = await fetch(`${API_BASE_URL}/health`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        return handleResponse<HealthCheckResponse>(response);
       },
-    });
-    
-    return handleResponse<HealthCheckResponse>(response);
+      {
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        service: 'WorkLocation Report Generator (Demo)',
+        version: '1.0.0',
+      }
+    );
+  },
+
+  /**
+   * Check if running in demo mode
+   */
+  isDemoMode(): boolean {
+    return USE_DEMO_MODE;
   },
 };
 

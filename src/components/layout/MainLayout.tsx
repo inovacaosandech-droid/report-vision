@@ -1,5 +1,6 @@
 import { ReactNode } from 'react';
 import { Header } from './Header';
+import { DemoBanner } from './DemoBanner';
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -8,6 +9,7 @@ interface MainLayoutProps {
 export function MainLayout({ children }: MainLayoutProps) {
   return (
     <div className="flex min-h-screen flex-col">
+      <DemoBanner />
       <a href="#main-content" className="skip-link">
         Pular para o conteúdo principal
       </a>
