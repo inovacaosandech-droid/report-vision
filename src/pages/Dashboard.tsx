@@ -8,13 +8,14 @@ import { ReportCard } from '@/components/reports/ReportCard';
 import { StatsCard } from '@/components/reports/StatsCard';
 import { GenerateReportDialog } from '@/components/reports/GenerateReportDialog';
 import { ReportTypeFilter, FilterType } from '@/components/reports/ReportTypeFilter';
+import { ReportDetailPanel } from '@/components/reports/ReportDetailPanel';
 import { Button } from '@/components/ui/button';
 import { useReportsList, useGeneratePeriodicReport } from '@/hooks/useReports';
 import { getReportType, Report } from '@/types/reports';
 
 export default function Dashboard() {
   const [filter, setFilter] = useState<FilterType>('all');
-  const [selectedReport, setSelectedReport] = useState<string | null>(null);
+  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   
   const { data, isLoading, isError, refetch } = useReportsList();
   const generatePeriodicMutation = useGeneratePeriodicReport();
@@ -45,11 +46,6 @@ export default function Dashboard() {
     };
   }, [reports]);
 
-  // Get selected report details
-  const selectedReportData = useMemo(() => {
-    return reports.find(r => r.fileName === selectedReport);
-  }, [reports, selectedReport]);
-
   // Get latest report date
   const latestReportDate = useMemo(() => {
     if (sortedReports.length === 0) return null;
@@ -58,6 +54,10 @@ export default function Dashboard() {
 
   const handleGeneratePeriodic = () => {
     generatePeriodicMutation.mutate();
+  };
+
+  const handleSelectReport = (report: Report) => {
+    setSelectedReport(selectedReport?.fileName === report.fileName ? null : report);
   };
 
   return (
@@ -131,6 +131,16 @@ export default function Dashboard() {
               </div>
             </section>
 
+            {/* Selected Report Detail Panel */}
+            {selectedReport && (
+              <section aria-label="Detalhes do relatório" className="mb-6">
+                <ReportDetailPanel 
+                  report={selectedReport} 
+                  onClose={() => setSelectedReport(null)} 
+                />
+              </section>
+            )}
+
             {/* Reports List */}
             {filteredReports.length === 0 ? (
               <EmptyState
@@ -142,7 +152,9 @@ export default function Dashboard() {
               />
             ) : (
               <section aria-label="Lista de relatórios">
-                <h2 className="sr-only">Relatórios disponíveis</h2>
+                <h2 className="mb-4 text-lg font-semibold text-foreground">
+                  {selectedReport ? 'Outros Relatórios' : 'Selecione um Relatório para Visualizar'}
+                </h2>
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                   {filteredReports.map((report, index) => (
                     <div 
@@ -151,10 +163,8 @@ export default function Dashboard() {
                     >
                       <ReportCard
                         report={report}
-                        isSelected={selectedReport === report.fileName}
-                        onClick={() => setSelectedReport(
-                          selectedReport === report.fileName ? null : report.fileName
-                        )}
+                        isSelected={selectedReport?.fileName === report.fileName}
+                        onClick={() => handleSelectReport(report)}
                       />
                     </div>
                   ))}
