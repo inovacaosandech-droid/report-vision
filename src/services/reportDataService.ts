@@ -1,62 +1,7 @@
 import { ReportData, ReportRecord } from '@/types/reportData';
 
-// Generate realistic mock data based on the Excel structure
-const USERNAMES = [
-  'igor.batista',
-  'jonathan.barbosa',
-  'maria.silva',
-  'pedro.santos',
-  'ana.oliveira',
-  'carlos.ferreira',
-  'julia.costa',
-  'lucas.almeida',
-];
-
-const MACHINES = [
-  'SANDECH-320-NT',
-  'SANDECH-255-NT',
-  'SANDECH-180-NT',
-  'WORKSTATION-01',
-  'WORKSTATION-02',
-  'NOTEBOOK-DEV',
-  'NOTEBOOK-ADM',
-];
-
-function randomDate(start: Date, end: Date): Date {
-  return new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
-}
-
-function generateMockRecords(count: number, startDate: Date, endDate: Date): ReportRecord[] {
-  const records: ReportRecord[] = [];
-  
-  for (let i = 0; i < count; i++) {
-    const username = USERNAMES[Math.floor(Math.random() * USERNAMES.length)];
-    const workMode = Math.random() > 0.4 ? 'presencial' : 'home';
-    const networkClassification = workMode === 'home' 
-      ? (Math.random() > 0.3 ? 'external' : 'vpn')
-      : (Math.random() > 0.5 ? 'internal' : 'external');
-    const validationStatus = 
-      (workMode === 'presencial' && networkClassification === 'external') ||
-      (workMode === 'home' && networkClassification === 'internal')
-        ? 'mismatch' 
-        : 'ok';
-    
-    records.push({
-      username,
-      workMode,
-      networkClassification,
-      validationStatus,
-      sourceIP: `::ffff:192.168.0.${Math.floor(Math.random() * 255)}`,
-      machineName: MACHINES[Math.floor(Math.random() * MACHINES.length)],
-      createdAt: randomDate(startDate, endDate).toISOString(),
-    });
-  }
-  
-  // Sort by date
-  return records.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-}
-
-function generateSummary(records: ReportRecord[]) {
+// Helper function to generate summary from records
+export function generateSummary(records: ReportRecord[]) {
   const userMap = new Map<string, { home: number; presencial: number }>();
   
   records.forEach(record => {
@@ -75,44 +20,6 @@ function generateSummary(records: ReportRecord[]) {
     presencialCount: counts.presencial,
     total: counts.home + counts.presencial,
   })).sort((a, b) => b.total - a.total);
-}
-
-export function getReportData(fileName: string): ReportData {
-  // Determine date range based on filename
-  const isPeriodic = fileName.includes('21_');
-  const now = new Date();
-  
-  let startDate: Date;
-  let endDate: Date;
-  let recordCount: number;
-  
-  if (isPeriodic) {
-    // Periodic report: 21st of previous month to 20th of current month
-    startDate = new Date(now.getFullYear(), now.getMonth() - 1, 21);
-    endDate = new Date(now.getFullYear(), now.getMonth(), 20);
-    recordCount = Math.floor(Math.random() * 100) + 80; // 80-180 records
-  } else {
-    // Monthly report: full month
-    const monthMatch = fileName.match(/(\w+)_(\d{4})/);
-    if (monthMatch) {
-      const year = parseInt(monthMatch[2]);
-      startDate = new Date(year, now.getMonth() - 1, 1);
-      endDate = new Date(year, now.getMonth(), 0);
-    } else {
-      startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      endDate = new Date(now.getFullYear(), now.getMonth(), 0);
-    }
-    recordCount = Math.floor(Math.random() * 50) + 30; // 30-80 records
-  }
-  
-  const records = generateMockRecords(recordCount, startDate, endDate);
-  const summary = generateSummary(records);
-  
-  return {
-    records,
-    summary,
-    totalRecords: records.length,
-  };
 }
 
 // Transform data for charts

@@ -4,13 +4,15 @@ import {
   GenerateReportResponse,
   HealthCheckResponse,
 } from '@/types/reports';
+import { ReportData } from '@/types/reportData';
+import { generateSummary } from './reportDataService';
 
-// Use environment variable or fallback to localhost
-// For production, set VITE_API_URL to your public API endpoint
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+// Use environment variable or fallback to empty string (same origin)
+// For production, set VITE_API_URL to your public API endpoint or leave empty for nginx proxy
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
-// Demo mode - when API is not reachable, use mock data
-const USE_DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true' || !import.meta.env.VITE_API_URL;
+// Demo mode - only when explicitly enabled
+const USE_DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true';
 
 // Mock data for demonstration
 const MOCK_REPORTS: ReportsListResponse = {
@@ -214,6 +216,34 @@ export const reportsApi = {
     link.click();
     window.URL.revokeObjectURL(url);
     document.body.removeChild(link);
+  },
+
+  /**
+   * Get detailed report data for charts
+   */
+  async getReportDetails(fileName: string): Promise<ReportData> {
+    const encodedFileName = encodeURIComponent(fileName);
+    const response = await fetch(`${API_BASE_URL}/api/reports/details/${encodedFileName}`);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Erro ao buscar detalhes do relatório' }));
+      throw new ApiError(
+        errorData.error || 'Erro ao buscar detalhes do relatório',
+        response.status,
+        errorData
+      );
+    }
+
+    const data = await response.json();
+
+    const records = data.records || [];
+    const summary = generateSummary(records);
+
+    return {
+      records,
+      summary,
+      totalRecords: data.totalRecords || 0,
+    };
   },
 
   /**

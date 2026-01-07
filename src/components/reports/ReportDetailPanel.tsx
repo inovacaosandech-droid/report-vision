@@ -1,8 +1,10 @@
-import { useMemo } from 'react';
-import { X, FileSpreadsheet, Users, AlertTriangle, Wifi } from 'lucide-react';
+import { X, FileSpreadsheet, Users, AlertTriangle, Wifi, Loader2 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Report, getReportType, formatReportDate } from '@/types/reports';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { DownloadButton } from '@/components/reports/DownloadButton';
 import { WorkModeChart } from '@/components/charts/WorkModeChart';
 import { DailyAccessChart } from '@/components/charts/DailyAccessChart';
@@ -10,13 +12,13 @@ import { UserAccessChart } from '@/components/charts/UserAccessChart';
 import { ValidationStatusChart } from '@/components/charts/ValidationStatusChart';
 import { NetworkClassificationChart } from '@/components/charts/NetworkClassificationChart';
 import {
-  getReportData,
   getWorkModeDistribution,
   getDailyAccessTrend,
   getUserAccessRanking,
   getValidationStatusDistribution,
   getNetworkClassificationDistribution,
 } from '@/services/reportDataService';
+import { reportsApi } from '@/services/api';
 
 interface ReportDetailPanelProps {
   report: Report;
@@ -26,16 +28,51 @@ interface ReportDetailPanelProps {
 export function ReportDetailPanel({ report, onClose }: ReportDetailPanelProps) {
   const reportType = getReportType(report.fileName);
   const formattedDate = formatReportDate(report.createdAt);
-  
-  // Generate report data (in real app, this would come from an API)
-  const reportData = useMemo(() => getReportData(report.fileName), [report.fileName]);
-  
+
+  // Fetch real report data from API
+  const { data: reportData, isLoading, error } = useQuery({
+    queryKey: ['reportDetails', report.fileName],
+    queryFn: () => reportsApi.getReportDetails(report.fileName),
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  });
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <Card className="animate-fade-in">
+        <CardContent className="p-6">
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <span className="ml-3">Carregando dados do relatório...</span>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Error state
+  if (error || !reportData) {
+    return (
+      <Card className="animate-fade-in">
+        <CardContent className="p-6">
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Erro ao carregar dados</AlertTitle>
+            <AlertDescription>
+              Não foi possível carregar os dados do relatório. Tente novamente.
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
+    );
+  }
+
   // Prepare chart data
-  const workModeData = useMemo(() => getWorkModeDistribution(reportData), [reportData]);
-  const dailyAccessData = useMemo(() => getDailyAccessTrend(reportData), [reportData]);
-  const userAccessData = useMemo(() => getUserAccessRanking(reportData), [reportData]);
-  const validationData = useMemo(() => getValidationStatusDistribution(reportData), [reportData]);
-  const networkData = useMemo(() => getNetworkClassificationDistribution(reportData), [reportData]);
+  const workModeData = getWorkModeDistribution(reportData);
+  const dailyAccessData = getDailyAccessTrend(reportData);
+  const userAccessData = getUserAccessRanking(reportData);
+  const validationData = getValidationStatusDistribution(reportData);
+  const networkData = getNetworkClassificationDistribution(reportData);
 
   // Calculate summary stats
   const mismatchCount = reportData.records.filter(r => r.validationStatus === 'mismatch').length;
